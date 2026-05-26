@@ -1,0 +1,43 @@
+const preQuestions = [
+  {
+    question: "O pH está relacionado a qual característica de uma substância?",
+    options: ["Cor", "Acidez ou basicidade", "Temperatura"],
+    answer: 1,
+  },
+  {
+    question: "Qual das substâncias abaixo é considerada básica?",
+    options: ["Limão", "Vinagre", "Sabão"],
+    answer: 2,
+  },
+  {
+    question: "O que significa dizer que uma substância possui pH 7?",
+    options: ["É ácida", "É neutra", "É básica"],
+    answer: 1,
+  },
+];
+
+const postQuestions = [
+  {
+    question: "Qual é a principal função do pH na área farmacêutica?",
+    options: [
+      "Alterar a cor dos medicamentos",
+      "Controlar a estabilidade e a eficácia dos medicamentos",
+      "Aumentar o tamanho dos comprimidos",
+    ],
+    answer: 1,
+  },
+  {
+    question: "Um produto com pH menor que 7 é classificado como:",
+    options: ["Ácido", "Básico", "Neutro"],
+    answer: 0,
+  },
+  {
+    question: "Por que o equilíbrio ácido-base é importante para o corpo humano?",
+    options: [
+      "Porque ajuda no funcionamento adequado das células e órgãos",
+      "Porque muda a cor do sangue",
+      "Porque aumenta a temperatura corporal",
+    ],
+    answer: 0,
+  },
+]; 
