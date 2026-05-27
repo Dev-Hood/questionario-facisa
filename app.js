@@ -6,6 +6,7 @@ const state = {
   dataError: "",
   data: {
     postUnlocked: false,
+    accessLocked: false,
     submissions: [],
   },
 };
@@ -90,7 +91,7 @@ async function loadData() {
     return normalizeData(payload);
   } catch (error) {
     state.dataError = error.message || "Erro ao conectar com o Supabase.";
-    return { postUnlocked: false, submissions: [] };
+    return { postUnlocked: false, accessLocked: false, submissions: [] };
   }
 }
 
@@ -100,7 +101,7 @@ async function persistData(action) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(action),
   });
-  const payload = await response.json();
+  const payload = await safeJson(response);
 
   if (!response.ok) {
     throw new Error(payload.error || "Erro ao salvar dados.");
@@ -111,9 +112,18 @@ async function persistData(action) {
   return state.data;
 }
 
+async function safeJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
 function normalizeData(data) {
   return {
     postUnlocked: Boolean(data?.postUnlocked),
+    accessLocked: Boolean(data?.accessLocked),
     submissions: Array.isArray(data?.submissions) ? data.submissions : [],
   };
 }
@@ -125,7 +135,7 @@ function renderLogin() {
     <section class="login-layout">
       <div class="brand-panel">
         <span class="pill">Questionário acadêmico</span>
-        <h1>Sistema de questionário</h1>
+        <h1>pH: Testando o conhecimento</h1>
         <p>Informe seu nome para iniciar a primeira etapa.</p>
       </div>
 
@@ -137,24 +147,64 @@ function renderLogin() {
           <label for="name">Nome do participante</label>
           <input id="name" name="name" autocomplete="name" required minlength="2" placeholder="Ex.: Maria Silva" />
         </div>
-        <button class="btn full" type="submit">Entrar</button>
+        <button class="btn full" id="loginButton" type="submit">Entrar</button>
       </form>
     </section>
   `;
 
-  document.querySelector("#loginForm").addEventListener("submit", (event) => {
+  document.querySelector("#loginForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-    const name = new FormData(event.currentTarget).get("name").trim();
+    const form = event.currentTarget;
+    const button = document.querySelector("#loginButton");
+    const name = new FormData(form).get("name").trim();
     if (!name) return;
+
+    button.disabled = true;
+    button.textContent = "Verificando...";
+
+    state.data = await loadData();
     state.currentUser = name;
+
     if (isAdmin()) {
       saveSession("admin");
       renderAdmin();
     } else {
+      if (state.dataError) {
+        state.currentUser = null;
+        renderLogin();
+        return;
+      }
+
+      if (state.data.accessLocked) {
+        state.currentUser = null;
+        renderLoginBlocked();
+        return;
+      }
       saveSession("pre");
       renderParticipant();
     }
   });
+}
+
+function renderLoginBlocked() {
+  app.innerHTML = `
+    <section class="login-layout">
+      <div class="brand-panel">
+        <span class="pill">Questionário acadêmico</span>
+        <h1>pH: Testando o conhecimento</h1>
+        <p>O acesso ao questionário foi encerrado.</p>
+      </div>
+
+      <section class="card login-card">
+        <h2>Acesso bloqueado</h2>
+        <p class="muted">Não é possível registrar novas respostas neste momento.</p>
+        <button class="btn full" id="backLoginBtn" type="button">Voltar</button>
+      </section>
+    </section>
+  `;
+
+  clearSession();
+  document.querySelector("#backLoginBtn").addEventListener("click", renderLogin);
 }
 
 function isAdmin() {
@@ -162,6 +212,11 @@ function isAdmin() {
 }
 
 function renderParticipant(message = "") {
+  if (!isAdmin() && state.data.accessLocked) {
+    renderLoginBlocked();
+    return;
+  }
+
   saveSession("pre");
   const userSubmission = getUserSubmission(state.currentUser);
   const hasPre = Boolean(userSubmission?.pre);
@@ -190,6 +245,11 @@ function renderParticipant(message = "") {
 }
 
 function renderPostScreen(message = "") {
+  if (!isAdmin() && state.data.accessLocked) {
+    renderLoginBlocked();
+    return;
+  }
+
   saveSession("post");
   const userSubmission = getUserSubmission(state.currentUser);
   const hasPre = Boolean(userSubmission?.pre);
@@ -338,10 +398,75 @@ function renderSubmissionSummary(submissionPart, questionKey, hideScore = false)
   `;
 }
 
+function renderQuizResult(type, answers, message = "") {
+  const questionKey = type === "pre" ? "preQuestions" : "postQuestions";
+  const questions = state.questions[questionKey];
+  const title = type === "pre" ? "Primeira parte" : "Segunda parte";
+  const correctCount = answers.reduce(
+    (total, answer, index) => total + (answer === questions[index].answer ? 1 : 0),
+    0,
+  );
+
+  app.innerHTML = `
+    ${renderTopbar(`Olá, ${escapeHtml(state.currentUser)}`, false)}
+    ${message ? `<div class="notice">${escapeHtml(message)}</div>` : ""}
+
+    <div class="section-title">
+      <div>
+        <h2>Correção - ${title}</h2>
+        <p class="muted">Confira quais questões foram respondidas corretamente antes de avançar.</p>
+      </div>
+      <span class="pill">Respostas enviadas</span>
+    </div>
+
+    <section class="panel score-summary">
+      <span>Quantidade de acertos</span>
+      <strong>${correctCount}/${questions.length}</strong>
+    </section>
+
+    <section class="grid">
+      ${questions
+        .map((question, index) => {
+          const userAnswer = answers[index];
+          const isCorrect = userAnswer === question.answer;
+          return `
+            <article class="quiz-card result-card ${isCorrect ? "correct" : "wrong"}">
+              <div class="result-status">${isCorrect ? "Acertou" : "Errou"}</div>
+              <h3>${index + 1}. ${escapeHtml(question.question)}</h3>
+              <p class="muted">Sua resposta: <strong>${escapeHtml(question.options[userAnswer])}</strong></p>
+              ${
+                isCorrect
+                  ? ""
+                  : `<p class="muted">Alternativa correta: <strong>${escapeHtml(question.options[question.answer])}</strong></p>`
+              }
+            </article>
+          `;
+        })
+        .join("")}
+      <button class="btn" id="nextStepBtn" type="button">${type === "pre" ? "Ir para próxima etapa" : "Finalizar"}</button>
+    </section>
+  `;
+
+  bindTopbar();
+  document.querySelector("#nextStepBtn").addEventListener("click", () => {
+    if (type === "pre") {
+      renderPostScreen();
+      return;
+    }
+
+    renderThanksScreen();
+  });
+}
+
 function bindQuizForms() {
   document.querySelectorAll("[data-quiz]").forEach((form) => {
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
+      if (state.data.accessLocked) {
+        renderLoginBlocked();
+        return;
+      }
+
       const type = event.currentTarget.dataset.quiz;
       const questionKey = type === "pre" ? "preQuestions" : "postQuestions";
       const questions = state.questions[questionKey];
@@ -367,9 +492,9 @@ function bindQuizForms() {
           createdAt: new Date().toISOString(),
         });
         if (type === "pre") {
-          renderPostScreen("Primeira parte salva com sucesso.");
+          renderQuizResult(type, answers, "Primeira parte salva com sucesso.");
         } else {
-          renderThanksScreen();
+          renderQuizResult(type, answers, "Segunda parte salva com sucesso.");
         }
       } catch (error) {
         state.dataError = error.message;
@@ -429,6 +554,16 @@ function renderAdmin(message = "") {
       </div>
       <button class="btn" id="togglePostBtn" type="button">
         ${state.data.postUnlocked ? "Bloquear segunda parte" : "Desbloquear segunda parte"}
+      </button>
+    </section>
+
+    <section class="section-title">
+      <div>
+        <h2>Controle de acesso</h2>
+        <p class="muted">Bloqueie novos logins e novos envios quando a coleta de respostas terminar.</p>
+      </div>
+      <button class="btn ${state.data.accessLocked ? "secondary" : "danger"}" id="toggleAccessBtn" type="button">
+        ${state.data.accessLocked ? "Liberar acesso" : "Bloquear acesso"}
       </button>
     </section>
 
@@ -781,6 +916,21 @@ function bindAdminActions() {
     }
   });
 
+  document.querySelector("#toggleAccessBtn").addEventListener("click", async () => {
+    const nextValue = !state.data.accessLocked;
+    try {
+      await persistData({ action: "setAccessLocked", value: nextValue });
+      renderAdmin(
+        state.data.accessLocked
+          ? "Login e envio de novas respostas bloqueados."
+          : "Login e envio de respostas liberados.",
+      );
+    } catch (error) {
+      state.dataError = error.message;
+      renderAdmin();
+    }
+  });
+
   document.querySelector("#newSubmissionBtn").addEventListener("click", () => {
     renderResponseEditor();
   });
@@ -989,6 +1139,7 @@ function importJson(event) {
         action: "replaceData",
         data: {
           postUnlocked: Boolean(nextData.postUnlocked),
+          accessLocked: Boolean(nextData.accessLocked),
           submissions: nextData.submissions,
         },
       });

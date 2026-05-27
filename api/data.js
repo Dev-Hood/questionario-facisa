@@ -61,6 +61,21 @@ async function handleAction(body) {
     return readData();
   }
 
+  if (body.action === "setAccessLocked") {
+    await requestSupabase("/questionnaire_settings?on_conflict=id", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates" },
+      body: [
+        {
+          id: "access",
+          post_unlocked: Boolean(body.value),
+          updated_at: new Date().toISOString(),
+        },
+      ],
+    });
+    return readData();
+  }
+
   if (body.action === "upsertPart") {
     await upsertPart(body.user, body.type, body.payload);
     return readData();
@@ -93,12 +108,15 @@ async function handleAction(body) {
 
 async function readData() {
   const [settings, submissions] = await Promise.all([
-    requestSupabase("/questionnaire_settings?id=eq.global&select=post_unlocked"),
+    requestSupabase("/questionnaire_settings?id=in.(global,access)&select=id,post_unlocked"),
     requestSupabase("/questionnaire_submissions?select=*&order=created_at.asc"),
   ]);
+  const globalSettings = settings.find((item) => item.id === "global");
+  const accessSettings = settings.find((item) => item.id === "access");
 
   return {
-    postUnlocked: Boolean(settings[0]?.post_unlocked),
+    postUnlocked: Boolean(globalSettings?.post_unlocked),
+    accessLocked: Boolean(accessSettings?.post_unlocked),
     submissions: submissions.map(fromDbSubmission),
   };
 }
@@ -176,6 +194,7 @@ async function clearPart(id, type) {
 async function replaceData(data) {
   const nextData = {
     postUnlocked: Boolean(data?.postUnlocked),
+    accessLocked: Boolean(data?.accessLocked),
     submissions: Array.isArray(data?.submissions) ? data.submissions : [],
   };
   const current = await requestSupabase("/questionnaire_submissions?select=id");
@@ -195,6 +214,11 @@ async function replaceData(data) {
       {
         id: "global",
         post_unlocked: nextData.postUnlocked,
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: "access",
+        post_unlocked: nextData.accessLocked,
         updated_at: new Date().toISOString(),
       },
     ],
