@@ -104,6 +104,64 @@ button {
   padding: 28px;
 }
 
+.institution-logo {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.institution-logo img {
+  width: clamp(112px, 30vw, 178px);
+  height: clamp(112px, 30vw, 178px);
+  object-fit: cover;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.86);
+  background: white;
+  box-shadow: 0 18px 45px rgba(32, 23, 47, 0.2);
+}
+
+.institution-logo figcaption {
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.86rem;
+  font-weight: 900;
+  text-align: center;
+}
+
+.institution-logo.image-missing img {
+  display: none;
+}
+
+.institution-logo.image-missing::before {
+  content: "FOCISA Farmácia";
+  display: grid;
+  place-items: center;
+  width: clamp(112px, 30vw, 178px);
+  height: clamp(112px, 30vw, 178px);
+  padding: 18px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.86);
+  background: white;
+  color: var(--primary-dark);
+  box-shadow: 0 18px 45px rgba(32, 23, 47, 0.2);
+  font-weight: 900;
+  text-align: center;
+}
+
+.login-institution-logo {
+  grid-column: 1 / -1;
+  margin-top: 8px;
+}
+
+.card-institution-logo {
+  margin: 20px 0 0;
+}
+
+.card-institution-logo figcaption,
+.thanks-institution-logo figcaption {
+  color: var(--muted);
+}
+
 .card h2,
 .panel h2,
 .section-title h2 {
@@ -530,6 +588,10 @@ tr:last-child td {
   color: var(--muted);
 }
 
+.thanks-institution-logo {
+  margin: 0 0 22px;
+}
+
 .stats-overview {
   margin: 18px 0;
 }
@@ -660,6 +722,16 @@ tr:last-child td {
 
   .login-card {
     margin-top: 8px;
+  }
+
+  .login-institution-logo {
+    margin-top: 2px;
+  }
+
+  .institution-logo img,
+  .institution-logo.image-missing::before {
+    width: 118px;
+    height: 118px;
   }
 
   .field input,

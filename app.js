@@ -149,6 +149,7 @@ function renderLogin() {
         </div>
         <button class="btn full" id="loginButton" type="submit">Entrar</button>
       </form>
+      ${renderInstitutionLogo("login-institution-logo")}
     </section>
   `;
 
@@ -198,6 +199,7 @@ function renderLoginBlocked() {
       <section class="card login-card">
         <h2>Acesso bloqueado</h2>
         <p class="muted">Não é possível registrar novas respostas neste momento.</p>
+        ${renderInstitutionLogo("card-institution-logo")}
         <button class="btn full" id="backLoginBtn" type="button">Voltar</button>
       </section>
     </section>
@@ -301,6 +303,7 @@ function renderThanksScreen() {
         />
         <h1>Obrigado por participar!</h1>
         <p>Sua contribuição foi registrada com sucesso.</p>
+        ${renderInstitutionLogo("thanks-institution-logo")}
         <button class="btn secondary" id="finishBtn" type="button">Finalizar</button>
       </div>
     </section>
@@ -310,6 +313,19 @@ function renderThanksScreen() {
     clearSession();
     renderLogin();
   });
+}
+
+function renderInstitutionLogo(extraClass = "") {
+  return `
+    <figure class="institution-logo ${extraClass}">
+      <img
+        src="assets/focisa-farmacia.png"
+        alt="FOCISA Farmácia"
+        onerror="this.closest('.institution-logo').classList.add('image-missing')"
+      />
+      
+    </figure>
+  `;
 }
 
 function renderTopbar(title, admin) {
